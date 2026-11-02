@@ -154,7 +154,7 @@ void sobel(vector<unsigned char>& pixels, vector<unsigned char>& edges, vector<f
             mag[index]=sqrt((float)(sumx*sumx+sumy*sumy));
 
             //threshold: only keep strong edges
-            if(mag[index]>200){
+            if(mag[index]>50){
                 edges[index]=255;
             }else{
 	    	edges[index]=0;
@@ -163,10 +163,74 @@ void sobel(vector<unsigned char>& pixels, vector<unsigned char>& edges, vector<f
     }
 }
 
+//======gaussian blur(to reduce noise)======
+
+
+void gaussianBlur(vector<unsigned char>& pixels, vector<unsigned char>& blurred, int width, int height, size_t pixelcnt){
+//5x5 Gaussian kernel
+    /*int gaussian[5][5]={
+        {1,  4,  6,  4, 1},
+        {4, 16, 24, 16, 4},
+        {6, 24, 36, 24, 6},
+        {4, 16, 24, 16, 4},
+        {1,  4,  6,  4, 1}
+    };*/
+    
+    int gaussian[5][5]={
+    	{1,  2,  3,  2, 1},
+    	{2,  4,  6,  4, 2},
+    	{3,  6,  9,  6, 3},
+    	{2,  4,  6,  4, 2},
+    	{1,  2,  3,  2, 1}
+    };
+    
+    /*int gaussian[5][5]={
+    	{1,  3,  4,  3, 1},
+    	{3,  9, 12,  9, 3},
+    	{4, 12, 16, 12, 4},
+    	{3,  9, 12,  9, 3},
+    	{1,  3,  4,  3, 1}
+    };*/
+    
+    /*int gaussian[5][5]={
+    	{1,  4,  7,  4, 1},
+    	{4, 16, 26, 16, 4},
+    	{7, 26, 41, 26, 7},
+    	{4, 16, 26, 16, 4},
+    	{1,  4,  7,  4, 1}
+    };*/
+
+    int kernelsum=0;
+    for(int i=0; i<5; i++){
+    	for(int j=0; j<5; j++){
+		kernelsum+=gaussian[i][j];
+	}
+    }
+    //moving a 5x5 grid along shifting by one pixel every time similar to hwo sobel was implemented
+    //start in center of first 5x5 which is 2 offset in both x and y
+    for(int y=2;y<height-2;y++){
+        for(int x=2;x<width-2;x++){
+            int sum=0;
+
+            //compare pixel to all its neighbors by calculating weighted sum
+            for(int j=-2;j<=2;j++){
+                for(int i=-2;i<=2;i++){
+                    int pixel=pixels[(size_t)(y+j)*width+(x+i)];
+                    //multiply neighboring pixels with Gaussian mtx
+                    sum+=pixel*gaussian[j+2][i+2];
+                }
+            }
+            size_t index=(size_t)y*width+x;
+
+            //divide by kernel sum to normalize brightness
+            blurred[index]=sum/kernelsum;
+        }
+    }
+}
 
 //=======
 int main(){
-    ifstream file("test-images/simpleshapesbigger.ppm",ios::binary);
+    ifstream file("test-images/halloween.ppm",ios::binary);
     if(!file){
         cout<<"could not open image"<<endl;
         return 1;
@@ -258,12 +322,18 @@ int main(){
     //image analysis
     vector<unsigned char> edges;
     vector<float> gx, gy, mag;
+    vector<unsigned char> blurred;
+    
     edges.resize(pixelcnt,0);
     gx.resize(pixelcnt,0);
     gy.resize(pixelcnt,0);
     mag.resize(pixelcnt,0);
+    blurred.resize(pixelcnt,0);
 
-    sobel(pixels, edges, gx, gy, mag, width, height, pixelcnt);
+    gaussianBlur(pixels, blurred, width, height, pixelcnt);
+    makeimage("blurred.ppm", blurred, width, height, pixelcnt, 255);
+    sobel(blurred, edges, gx, gy, mag, width, height, pixelcnt);
+    //sobel(pixels, edges, gx, gy, mag, width, height, pixelcnt);
     makeimage("sobeloutput.ppm", edges, width, height, pixelcnt, 255);
     makeimage("magnitude.ppm", mag, width, height, pixelcnt, 1443);
     cout<<"edge detection finished"<<endl;
